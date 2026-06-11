@@ -1,0 +1,170 @@
+{% extends 'vocabulary/base.html' %}
+
+{% block title %}學習儀表板{% endblock %}
+
+{% block extra_css %}
+<style>
+    .circular-chart {
+        display: block;
+        margin: 0 auto;
+        max-width: 80%;
+        max-height: 250px;
+    }
+    .circle-bg {
+        fill: none;
+        stroke: rgba(44, 62, 80, 0.15); /* Darker track for better contrast */
+        stroke-width: 3.8;
+    }
+    .circle {
+        fill: none;
+        stroke-width: 3.8;
+        stroke-linecap: round;
+        animation: progress 1s ease-out forwards;
+    }
+    .percentage {
+        fill: #2c3e50;
+        font-family: 'Alegreya', serif;
+        font-weight: 800;
+        font-size: 0.5em;
+        text-anchor: middle;
+    }
+    .sub-text {
+        fill: #34495e;
+        font-family: 'Alegreya', serif;
+        font-weight: 700;
+        font-size: 0.2em;
+        text-anchor: middle;
+    }
+    @keyframes progress {
+        0% { stroke-dasharray: 0 100; }
+    }
+    .streak-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #ff6b6b;
+    }
+    .fire-icon {
+        font-size: 2rem;
+        animation: flicker 1.5s infinite alternate;
+    }
+    @keyframes flicker {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.1); opacity: 0.8; }
+    }
+    .study-btn-container {
+        position: fixed;
+        bottom: 2rem;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90%;
+        max-width: 600px;
+        z-index: 10;
+    }
+    .study-btn {
+        width: 100%;
+        padding: 1.2rem;
+        font-size: 1.5rem;
+        border-radius: 50px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        box-shadow: 0 10px 20px rgba(118, 75, 162, 0.3);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .study-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 15px 25px rgba(118, 75, 162, 0.4);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5 pb-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            
+            <div class="glass-card text-center mb-4 p-4">
+                <div class="streak-container mb-3">
+                    <span class="fire-icon">🔥</span>
+                    <span>連續學習 {{ profile.streak_days }} 天</span>
+                </div>
+                
+                <h3 class="mb-4 text-muted">今日進度</h3>
+                
+                <svg viewBox="0 0 36 36" class="circular-chart">
+                    <path class="circle-bg"
+                        d="M18 2.0845
+                        a 15.9155 15.9155 0 0 1 0 31.831
+                        a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                    <path class="circle"
+                        stroke="url(#gradient)"
+                        stroke-dasharray="{{ progress_percentage }}, 100"
+                        d="M18 2.0845
+                        a 15.9155 15.9155 0 0 1 0 31.831
+                        a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                    <defs>
+                        <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#2c3e50" />
+                            <stop offset="100%" stop-color="#667eea" />
+                        </linearGradient>
+                    </defs>
+                    <text x="18" y="17" class="percentage">{{ progress_percentage }}%</text>
+                    <text x="18" y="24" class="sub-text">{{ profile.words_learned_today }} / <tspan id="goal-display">{{ profile.daily_goal }}</tspan></text>
+                </svg>
+
+                <div class="mt-4">
+                    <label class="form-label text-muted fw-bold">設定每日目標：</label>
+                    <select id="goal-select" class="form-select bg-transparent text-center fw-bold mx-auto w-50" style="border-color: rgba(44, 62, 80, 0.3); color: #2c3e50;">
+                        <option value="5" {% if profile.daily_goal == 5 %}selected{% endif %}>5 個單字</option>
+                        <option value="10" {% if profile.daily_goal == 10 %}selected{% endif %}>10 個單字</option>
+                        <option value="15" {% if profile.daily_goal == 15 %}selected{% endif %}>15 個單字</option>
+                        <option value="20" {% if profile.daily_goal == 20 %}selected{% endif %}>20 個單字</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="glass-card text-center p-4">
+                <h3 class="mb-3 text-muted">待複習單字</h3>
+                <h1 class="display-1 fw-bold text-primary">{{ review_due_count }}</h1>
+                <p class="text-muted">根據遺忘曲線，這是您今天需要複習的單字數量。</p>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div class="study-btn-container">
+    <a href="{% url 'flashcard_study' %}" class="btn study-btn d-flex justify-content-center align-items-center gap-2">
+        <span class="fs-3">🚀</span> 開始學習
+    </a>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.getElementById('goal-select').addEventListener('change', function() {
+        const goal = this.value;
+        fetch("{% url 'update_daily_goal' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ goal: goal })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                location.reload(); // Reload to update chart
+            }
+        });
+    });
+</script>
+{% endblock %}

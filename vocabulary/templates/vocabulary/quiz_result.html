@@ -1,0 +1,21 @@
+{% extends 'vocabulary/base.html' %}
+
+{% block title %}最終成績 - Habitual{% endblock %}
+
+{% block content %}
+<div class="container mt-5 text-center">
+    <div class="card glass-card mx-auto" style="max-width: 500px;">
+        <h1 class="mb-4">🎉 測驗完成！</h1>
+        
+        <div class="my-4 p-4" style="background: rgba(255, 255, 255, 0.5); border-radius: 20px;">
+            <h3 class="text-muted fw-bold mb-3">你的成績</h3>
+            <h2 class="display-3 text-primary fw-bold mb-0">{{ score }} <span class="fs-3 text-muted">/ {{ total }}</span></h2>
+        </div>
+        
+        <div class="d-grid gap-3 mt-4">
+            <a href="{% url 'quiz_start' %}" class="btn action-btn btn-primary">重新測驗 🔄</a>
+            <a href="{% url 'wrong_list' %}" class="btn action-btn btn-outline-danger">查看錯題本 📕</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

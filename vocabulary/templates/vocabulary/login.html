@@ -1,0 +1,44 @@
+{% extends 'vocabulary/base.html' %}
+
+{% block title %}登入 - Habitual{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card glass-card mx-auto" style="max-width: 500px;">
+        <h2 class="text-center mb-4">登入</h2>
+        <form method="POST" action="{% url 'login' %}">
+            {% csrf_token %}
+            
+            {% if form.errors %}
+            <div class="alert alert-danger rounded-4 border-0 shadow-sm">
+                請檢查您輸入的帳號或密碼是否正確。
+            </div>
+            {% endif %}
+
+            {% for field in form %}
+            <div class="mb-3">
+                <label for="{{ field.id_for_label }}" class="form-label fw-bold text-muted">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}
+                <div class="form-text text-muted small">{{ field.help_text }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+            
+            <!-- Django's AuthenticationForm doesn't add bootstrap classes by default, let's add them via JS -->
+            <script>
+                document.querySelectorAll('input').forEach(e => e.classList.add('form-control', 'rounded-4', 'shadow-sm', 'border-0', 'py-2'));
+            </script>
+
+            <div class="d-grid gap-2 mt-4">
+                <button type="submit" class="btn btn-primary action-btn">登入</button>
+            </div>
+            
+            <div class="text-center mt-4">
+                <span class="text-muted">還沒有帳號？</span>
+                <a href="{% url 'register' %}" class="text-decoration-none fw-bold">立即註冊</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
