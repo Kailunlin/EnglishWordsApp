@@ -1,0 +1,48 @@
+{% extends 'vocabulary/base.html' %}
+
+{% block title %}測驗中 - 第 {{ current_q }} 題{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card glass-card mx-auto" style="max-width: 600px;">
+        <div class="progress-container mb-4"
+            style="background-color: rgba(255, 255, 255, 0.5); border-radius: 10px; height: 8px; overflow: hidden;">
+            <div class="progress-bar-fill"
+                style="background: linear-gradient(90deg, #8ec5fc 0%, #e0c3fc 100%); height: 100%; transition: width 0.5s ease-in-out; width: calc(({{ current_q }} - 1) / {{ total_q }} * 100%);">
+            </div>
+        </div>
+
+        <div class="text-center text-muted fw-bold mb-2">
+            Question {{ current_q }} of {{ total_q }}
+        </div>
+
+        <h2 class="text-center word-display d-flex justify-content-center align-items-center">
+            {{ word.english }}
+            <button type="button" class="btn btn-light rounded-circle ms-4 shadow-sm"
+                onclick="speak('{{ word.english|escapejs }}')" title="發音"
+                style="width: 50px; height: 50px; font-size: 1.5rem;">🔊</button>
+        </h2>
+
+        <form method="POST" action="{% url 'quiz_answer' %}" class="mt-4">
+            {% csrf_token %}
+            <input type="hidden" name="q_index" value="{{ current_q }}">
+            <div class="d-grid gap-3">
+                {% for option in options %}
+                <button type="submit" name="answer" value="{{ option }}" class="btn option-btn text-center py-3 px-4">
+                    {{ option }}
+                </button>
+                {% endfor %}
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Automatically pronounce the word when the page loads
+    window.addEventListener('load', function() {
+        speak('{{ word.english|escapejs }}');
+    });
+</script>
+{% endblock %}

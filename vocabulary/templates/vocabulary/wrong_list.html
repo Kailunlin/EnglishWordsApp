@@ -1,0 +1,137 @@
+{% extends 'vocabulary/base.html' %}
+
+{% block title %}錯題本 - Habitual{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-link {
+        border-radius: 12px !important;
+        margin: 0 3px;
+        border: 2px solid transparent;
+        background: rgba(255, 255, 255, 0.8);
+        color: #2c3e50;
+        font-weight: 700;
+        transition: all 0.3s ease;
+    }
+    .page-link:hover {
+        background: rgba(142, 197, 252, 0.3);
+        border-color: #8ec5fc;
+        transform: translateY(-2px);
+        color: #2c3e50;
+    }
+    .page-item.active .page-link {
+        background: linear-gradient(90deg, #8ec5fc 0%, #e0c3fc 100%);
+        border-color: transparent;
+        color: #2c3e50;
+        box-shadow: 0 4px 15px rgba(142, 197, 252, 0.4);
+    }
+    .page-item.disabled .page-link {
+        background: rgba(255,255,255,0.4);
+        color: #aaa;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card glass-card mx-auto" style="max-width: 900px;">
+        <h1 class="mb-4 text-center">📕 錯題本</h1>
+        <p class="text-center text-muted mb-4">多複習這些單字，下次就不會再錯囉！</p>
+
+        <div class="table-responsive">
+            <table class="table table-glass text-center align-middle">
+                <thead>
+                    <tr>
+                        <th>英文</th>
+                        <th>詞性</th>
+                        <th>正確中文</th>
+                        <th>你的錯誤答案</th>
+                        <th style="min-width: 250px;">例句與翻譯</th>
+                        <th>時間</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for w in page_obj %}
+                    <tr>
+                        <td class="fw-bold fs-5">
+                            {{ w.word.english }}
+                            <button class="btn btn-light rounded-circle btn-sm ms-2 shadow-sm" onclick="speak('{{ w.word.english|escapejs }}')" title="發音">🔊</button>
+                        </td>
+                        <td>
+                            {% if w.word.part_of_speech %}
+                                <span class="badge bg-secondary bg-opacity-75">{{ w.word.part_of_speech }}</span>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="text-success fw-bold">{{ w.word.chinese }}</td>
+                        <td class="text-danger"><del>{{ w.user_answer }}</del></td>
+                        <td class="text-start">
+                            {% if w.word.example %}
+                                <div class="mb-1">
+                                    <i class="fw-bold text-dark">{{ w.word.example }}</i>
+                                    <button class="btn btn-sm btn-light rounded-circle ms-1 p-1 shadow-sm" onclick="speak('{{ w.word.example|escapejs }}')" title="發音" style="font-size: 0.8rem; width: 24px; height: 24px; line-height: 1;">🔊</button>
+                                </div>
+                                <div class="text-muted small">{{ w.word.example_translation }}</div>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted small">{{ w.created_at|date:"Y/m/d H:i" }}</td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="6" class="py-4 text-muted">🎉 太棒了，目前沒有任何錯題！</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if page_obj.paginator.num_pages > 1 %}
+        <nav class="mt-4 d-flex justify-content-center">
+            <ul class="pagination flex-wrap gap-1">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1">«</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">‹</a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">«</span></li>
+                    <li class="page-item disabled"><span class="page-link">‹</span></li>
+                {% endif %}
+
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    {% elif num >= page_obj.number|add:"-3" and num <= page_obj.number|add:"3" %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">›</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">»</a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">›</span></li>
+                    <li class="page-item disabled"><span class="page-link">»</span></li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+
+        <div class="text-center mt-4">
+            <a href="{% url 'quiz_start' %}" class="btn action-btn btn-primary">重新挑戰測驗 🧠</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

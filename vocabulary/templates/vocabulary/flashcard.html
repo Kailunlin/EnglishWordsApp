@@ -1,0 +1,261 @@
+{% extends 'vocabulary/base.html' %}
+
+{% block title %}閃卡學習{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        overflow: hidden; /* Prevent scrolling during swipe */
+    }
+    .flashcard-container {
+        position: relative;
+        width: 100%;
+        max-width: 400px;
+        height: 60vh;
+        margin: 2rem auto;
+        perspective: 1000px;
+    }
+    .flashcard {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        transform-origin: 50% 100%;
+        cursor: grab;
+        transition: transform 0.3s ease, opacity 0.3s ease;
+        padding: 2rem;
+        text-align: center;
+    }
+    .flashcard.dragging {
+        transition: none;
+        cursor: grabbing;
+    }
+    .word-title {
+        font-size: 3rem;
+        font-weight: 800;
+        color: #2c3e50;
+        margin-bottom: 1rem;
+    }
+    .speak-btn {
+        font-size: 2rem;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+    .speak-btn:hover {
+        transform: scale(1.1);
+    }
+    .details {
+        margin-top: 2rem;
+        opacity: 0;
+        max-height: 0;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+    .details.show {
+        opacity: 1;
+        max-height: 200px;
+    }
+    .action-hints {
+        position: fixed;
+        bottom: 2rem;
+        left: 0;
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        padding: 0 2rem;
+        pointer-events: none;
+        opacity: 0.5;
+        font-weight: bold;
+    }
+    .empty-state {
+        display: none;
+        text-align: center;
+        margin-top: 20vh;
+    }
+    
+    .bg-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+        transition: background-color 0.3s;
+    }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="bg-overlay" id="bg-overlay"></div>
+
+<div class="container text-center mt-3">
+    <h5 class="text-muted">向左滑：不熟 ❌ &nbsp;&nbsp;|&nbsp;&nbsp; 向右滑：已記住 🟢</h5>
+    <p class="small text-muted">點擊卡片顯示中文解釋</p>
+</div>
+
+<div class="flashcard-container" id="card-container">
+    <!-- Cards will be injected here via JS -->
+</div>
+
+<div class="empty-state" id="empty-state">
+    <h2 class="fw-bold">🎉 太棒了！</h2>
+    <p class="text-muted fs-5">您已經完成目前所有的複習與學習目標。</p>
+    <a href="{% url 'dashboard' %}" class="btn btn-primary action-btn mt-3">回到儀表板</a>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const words = JSON.parse('{{ words_json|escapejs }}');
+    const container = document.getElementById('card-container');
+    const emptyState = document.getElementById('empty-state');
+    const bgOverlay = document.getElementById('bg-overlay');
+    
+    let currentIndex = 0;
+
+    function createCard(word, index) {
+        const card = document.createElement('div');
+        card.className = 'flashcard';
+        card.style.zIndex = words.length - index;
+        
+        // Initial setup for stack effect
+        if (index > 0) {
+            card.style.transform = `scale(${1 - index * 0.05}) translateY(${index * 15}px)`;
+            card.style.opacity = 1 - index * 0.2;
+        }
+
+        const exampleHtml = word.example 
+            ? `<div class="mt-3 p-3 bg-white bg-opacity-75 rounded-3 text-start">
+                <p class="mb-1 fw-bold text-dark">
+                    <i>${word.example}</i>
+                    <button class="btn btn-sm btn-light rounded-circle ms-2" onclick="event.stopPropagation(); speak('${word.example.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')">🔊</button>
+                </p>
+                ${word.example_translation ? `<p class="mb-0 text-muted small">${word.example_translation}</p>` : ''}
+               </div>`
+            : '';
+        const posHtml = word.part_of_speech 
+            ? `<span class="badge bg-primary bg-opacity-75 fs-6 ms-2 align-middle">${word.part_of_speech}</span>`
+            : '';
+        const content = `
+            <div class="word-title">${word.english}</div>
+            <button class="speak-btn" onclick="event.stopPropagation(); speak('${word.english.replace(/'/g, "\\'")}')">🔊</button>
+            <p class="text-muted small mt-2">點擊卡片查看解釋 👆</p>
+            <div class="details" id="details-${word.id}">
+                <hr>
+                <h4 class="text-primary fw-bold">${word.chinese}${posHtml}</h4>
+                ${exampleHtml}
+            </div>
+        `;
+        card.innerHTML = content;
+        
+        // Click to flip/show details
+        card.addEventListener('click', (e) => {
+            if(e.target.tagName !== 'BUTTON') {
+                const details = card.querySelector('.details');
+                const isShowing = !details.classList.contains('show');
+                details.classList.toggle('show');
+                // Auto-speak example sentence when details are revealed
+                if (isShowing && word.example) {
+                    speak(word.example);
+                }
+            }
+        });
+
+        initHammer(card, word);
+        return card;
+    }
+
+    function renderCards() {
+        if (currentIndex >= words.length) {
+            container.style.display = 'none';
+            emptyState.style.display = 'block';
+            return;
+        }
+        
+        container.innerHTML = '';
+        // Render current and next card for smooth stacking
+        for (let i = currentIndex; i < Math.min(currentIndex + 3, words.length); i++) {
+            container.appendChild(createCard(words[i], i - currentIndex));
+        }
+        // Auto-speak the current word
+        speak(words[currentIndex].english);
+    }
+
+    function initHammer(el, word) {
+        const hammer = new Hammer(el);
+        hammer.get('pan').set({ direction: Hammer.DIRECTION_HORIZONTAL });
+
+        hammer.on('pan', (e) => {
+            el.classList.add('dragging');
+            const xMulti = e.deltaX * 0.03;
+            const yMulti = e.deltaY / 80;
+            const rotate = xMulti * yMulti;
+            el.style.transform = `translate(${e.deltaX}px, ${e.deltaY}px) rotate(${rotate}deg)`;
+
+            // Background color hint
+            if (e.deltaX > 50) {
+                bgOverlay.style.backgroundColor = 'rgba(46, 204, 113, 0.2)'; // Green
+            } else if (e.deltaX < -50) {
+                bgOverlay.style.backgroundColor = 'rgba(231, 76, 60, 0.2)'; // Red
+            } else {
+                bgOverlay.style.backgroundColor = 'transparent';
+            }
+        });
+
+        hammer.on('panend', (e) => {
+            el.classList.remove('dragging');
+            bgOverlay.style.backgroundColor = 'transparent';
+            
+            const threshold = 100;
+            if (e.deltaX > threshold) {
+                // Swipe Right (Remembered)
+                swipeCard(el, 1, word.id);
+            } else if (e.deltaX < -threshold) {
+                // Swipe Left (Forgot)
+                swipeCard(el, -1, word.id);
+            } else {
+                // Reset
+                el.style.transform = '';
+            }
+        });
+    }
+
+    function swipeCard(el, direction, wordId) {
+        // Animate off screen
+        const xOut = direction * window.innerWidth;
+        el.style.transition = 'transform 0.4s ease-out';
+        el.style.transform = `translate(${xOut}px, 0) rotate(${direction * 30}deg)`;
+        
+        const action = direction > 0 ? 'remembered' : 'forgot';
+        
+        // Send to API
+        fetch("{% url 'api_swipe_word' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ word_id: wordId, action: action })
+        });
+
+        setTimeout(() => {
+            currentIndex++;
+            renderCards();
+        }, 300);
+    }
+
+    // Init
+    renderCards();
+</script>
+{% endblock %}

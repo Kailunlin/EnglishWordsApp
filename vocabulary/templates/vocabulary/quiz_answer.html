@@ -1,0 +1,122 @@
+{% extends 'vocabulary/base.html' %}
+
+{% block title %}測驗結果{% endblock %}
+
+{% block extra_css %}
+<style>
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
+        20%, 40%, 60%, 80% { transform: translateX(10px); }
+    }
+    @keyframes pop {
+        0% { transform: scale(0.8); opacity: 0; }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    .shake-animation {
+        animation: shake 0.6s cubic-bezier(.36,.07,.19,.97) both;
+    }
+    .pop-animation {
+        animation: pop 0.5s ease-out forwards;
+    }
+    .result-box {
+        border-radius: 20px;
+        padding: 2.5rem 2rem;
+        margin: 2rem 0;
+        color: #2c3e50;
+    }
+    .result-success {
+        background: linear-gradient(135deg, #d4fc79 0%, #96e6a1 100%);
+        box-shadow: 0 10px 30px rgba(150, 230, 161, 0.4);
+        border: 2px solid #fff;
+    }
+    .result-error {
+        background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%);
+        box-shadow: 0 10px 30px rgba(255, 154, 158, 0.4);
+        border: 2px solid #fff;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5 text-center">
+    <div class="card glass-card mx-auto" style="max-width: 600px;">
+        <h2 class="mb-3 word-display d-flex justify-content-center align-items-center">
+            {{ word.english }}
+            <button type="button" class="btn btn-light rounded-circle ms-3 shadow-sm" onclick="speak('{{ word.english|escapejs }}')" title="發音" style="width: 50px; height: 50px; font-size: 1.5rem;">🔊</button>
+        </h2>
+        
+        <div class="mt-3 mb-4">
+            {% if is_correct %}
+                <div class="result-box result-success pop-animation">
+                    <h2 class="text-success mb-3 fw-bold">🎉 答對了！</h2>
+                    <hr class="border-success opacity-25">
+                    <div class="text-start mt-3">
+                        <p class="fs-4 mb-2">
+                            <strong>{{ word.chinese }}</strong>
+                            {% if word.part_of_speech %}
+                                <span class="badge bg-success bg-opacity-75 ms-2 fs-6 align-middle">{{ word.part_of_speech }}</span>
+                            {% endif %}
+                        </p>
+                        {% if word.example %}
+                            <div class="mt-3 p-3 bg-white bg-opacity-50 rounded-3">
+                                <p class="mb-1 text-dark">
+                                    <i class="fw-bold">{{ word.example }}</i>
+                                    <button class="btn btn-sm btn-light rounded-circle ms-2" onclick="speak('{{ word.example|escapejs }}')" title="發音">🔊</button>
+                                </p>
+                                <p class="mb-0 text-muted small">{{ word.example_translation }}</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% else %}
+                <div class="result-box result-error shake-animation">
+                    <h2 class="text-danger mb-3 fw-bold">❌ 答錯了！</h2>
+                    <p class="text-muted mb-3 fs-5">你的答案：<del>{{ user_answer }}</del></p>
+                    <hr class="border-danger opacity-25">
+                    <div class="text-start mt-3">
+                        <p class="fs-4 mb-2">
+                            正確答案：<strong>{{ word.chinese }}</strong>
+                            {% if word.part_of_speech %}
+                                <span class="badge bg-danger bg-opacity-75 ms-2 fs-6 align-middle">{{ word.part_of_speech }}</span>
+                            {% endif %}
+                        </p>
+                        {% if word.example %}
+                            <div class="mt-3 p-3 bg-white bg-opacity-50 rounded-3">
+                                <p class="mb-1 text-dark">
+                                    <i class="fw-bold">{{ word.example }}</i>
+                                    <button class="btn btn-sm btn-light rounded-circle ms-2" onclick="speak('{{ word.example|escapejs }}')" title="發音">🔊</button>
+                                </p>
+                                <p class="mb-0 text-muted small">{{ word.example_translation }}</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="mt-4">
+            {% if is_last %}
+                <a href="{% url 'quiz_result' %}" class="btn btn-primary action-btn">查看成績 🏆</a>
+            {% else %}
+                <a href="{% url 'quiz_question' %}" class="btn btn-primary action-btn">下一題 ➡️</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Automatically pronounce the example sentence when the result page loads
+    window.addEventListener('load', function() {
+        {% if word.example %}
+            speak('{{ word.example|escapejs }}');
+        {% else %}
+            // Fallback to the word itself if there is no example
+            speak('{{ word.english|escapejs }}');
+        {% endif %}
+    });
+</script>
+{% endblock %}

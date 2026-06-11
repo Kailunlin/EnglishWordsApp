@@ -1,0 +1,52 @@
+{% extends 'vocabulary/base.html' %}
+
+{% block title %}註冊 - Habitual{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card glass-card mx-auto" style="max-width: 500px;">
+        <h2 class="text-center mb-4">註冊帳號</h2>
+        <form method="POST" action="{% url 'register' %}">
+            {% csrf_token %}
+            
+            {% if form.errors %}
+            <div class="alert alert-danger rounded-4 border-0 shadow-sm">
+                請修正下方的錯誤。
+                {% for field in form %}
+                    {% for error in field.errors %}
+                        <div>- {{ error }}</div>
+                    {% endfor %}
+                {% endfor %}
+                {% for error in form.non_field_errors %}
+                    <div>- {{ error }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% for field in form %}
+            <div class="mb-3">
+                <label for="{{ field.id_for_label }}" class="form-label fw-bold text-muted">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}
+                <div class="form-text text-muted small">{{ field.help_text }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+            
+            <!-- Styling for default Django forms -->
+            <script>
+                document.querySelectorAll('input').forEach(e => e.classList.add('form-control', 'rounded-4', 'shadow-sm', 'border-0', 'py-2'));
+            </script>
+
+            <div class="d-grid gap-2 mt-4">
+                <button type="submit" class="btn btn-success action-btn text-white">建立帳號</button>
+            </div>
+            
+            <div class="text-center mt-4">
+                <span class="text-muted">已經有帳號了？</span>
+                <a href="{% url 'login' %}" class="text-decoration-none fw-bold">前往登入</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
