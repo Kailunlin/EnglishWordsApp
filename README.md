@@ -56,8 +56,3 @@ Then open `http://127.0.0.1:8000/` in your browser.
 - `vocabulary/` — main app with models, views, templates, and management commands
 - `db.sqlite3` — local SQLite database file
 
-## GitHub
-
-This repository is linked to:
-
-`https://github.com/Kailunlin/EnglishWordsApp`
