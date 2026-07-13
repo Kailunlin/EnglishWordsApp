@@ -147,7 +147,18 @@
         const posHtml = word.part_of_speech 
             ? `<span class="badge bg-primary bg-opacity-75 fs-6 ms-2 align-middle">${word.part_of_speech}</span>`
             : '';
+            
+        let diffHtml = '';
+        if (word.difficulty === 'easy') {
+            diffHtml = `<span class="badge bg-success bg-opacity-75 fs-6 mb-2 align-middle d-block mx-auto" style="width: max-content;">Easy</span>`;
+        } else if (word.difficulty === 'medium') {
+            diffHtml = `<span class="badge bg-warning text-dark bg-opacity-75 fs-6 mb-2 align-middle d-block mx-auto" style="width: max-content;">Medium</span>`;
+        } else if (word.difficulty === 'hard') {
+            diffHtml = `<span class="badge bg-danger bg-opacity-75 fs-6 mb-2 align-middle d-block mx-auto" style="width: max-content;">Hard</span>`;
+        }
+
         const content = `
+            ${diffHtml}
             <div class="word-title">${word.english}</div>
             <button class="speak-btn" onclick="event.stopPropagation(); speak('${word.english.replace(/'/g, "\\'")}')">🔊</button>
             <p class="text-muted small mt-2">點擊卡片查看解釋 👆</p>
@@ -161,6 +172,7 @@
         
         // Click to flip/show details
         card.addEventListener('click', (e) => {
+            if (card.dataset.isSwiping === 'true') return;
             if(e.target.tagName !== 'BUTTON') {
                 const details = card.querySelector('.details');
                 const isShowing = !details.classList.contains('show');
@@ -197,6 +209,7 @@
         hammer.get('pan').set({ direction: Hammer.DIRECTION_HORIZONTAL });
 
         hammer.on('pan', (e) => {
+            el.dataset.isSwiping = 'true';
             el.classList.add('dragging');
             const xMulti = e.deltaX * 0.03;
             const yMulti = e.deltaY / 80;
@@ -215,6 +228,7 @@
 
         hammer.on('panend', (e) => {
             el.classList.remove('dragging');
+            setTimeout(() => { el.dataset.isSwiping = 'false'; }, 100);
             bgOverlay.style.backgroundColor = 'transparent';
             
             const threshold = 100;
@@ -232,6 +246,9 @@
     }
 
     function swipeCard(el, direction, wordId) {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+        }
         // Animate off screen
         const xOut = direction * window.innerWidth;
         el.style.transition = 'transform 0.4s ease-out';

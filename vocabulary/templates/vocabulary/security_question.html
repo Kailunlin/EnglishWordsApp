@@ -1,0 +1,52 @@
+﻿{% extends 'vocabulary/base.html' %}
+
+{% block title %}安全問題驗證 - Habitual{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card glass-card mx-auto" style="max-width: 500px;">
+        <!-- 步驟指示器 -->
+        <div class="d-flex justify-content-center mb-4 gap-2">
+            <span class="badge rounded-pill px-3 py-2 bg-light text-muted" style="font-size: 0.85rem;">① 輸入帳號</span>
+            <span class="badge rounded-pill px-3 py-2" style="background: linear-gradient(135deg, #e0c3fc, #8ec5fc); color: #2c3e50; font-size: 0.85rem;">② 安全問題</span>
+            <span class="badge rounded-pill px-3 py-2 bg-light text-muted" style="font-size: 0.85rem;">③ 重設密碼</span>
+        </div>
+
+        <h2 class="text-center mb-1">安全問題驗證</h2>
+        <p class="text-center text-muted small mb-4">請回答您當初設定的安全問題</p>
+
+        <!-- 顯示安全問題 -->
+        <div class="alert rounded-4 border-0 mb-4" style="background: rgba(142, 197, 252, 0.2);">
+            <p class="mb-0 fw-bold text-center" style="color: #2c3e50;">🔒 {{ question_display }}</p>
+        </div>
+
+        <form method="POST">
+            {% csrf_token %}
+
+            {% if form.errors %}
+            <div class="alert alert-danger rounded-4 border-0 shadow-sm">
+                {% for field in form %}
+                    {% for error in field.errors %}
+                        <div>{{ error }}</div>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="mb-4">
+                <label for="id_answer" class="form-label fw-bold text-muted">您的答案</label>
+                {{ form.answer }}
+                <div class="form-text text-muted small">答案不區分大小寫</div>
+            </div>
+
+            <div class="d-grid gap-2 mt-4">
+                <button type="submit" class="btn btn-primary action-btn">驗證答案 →</button>
+            </div>
+
+            <div class="text-center mt-4">
+                <a href="{% url 'forgot_password' %}" class="text-decoration-none text-muted small">← 重新輸入帳號</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

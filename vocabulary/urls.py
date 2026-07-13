@@ -19,4 +19,9 @@ urlpatterns = [
     path("study/", views.flashcard_study_view, name="flashcard_study"),
     path("api/swipe/", views.api_swipe_word, name="api_swipe_word"),
     path("api/goal/", views.update_daily_goal_api, name="update_daily_goal"),
+    # 忘記密碼流程
+    path("forgot-password/", views.forgot_password_view, name="forgot_password"),
+    path("forgot-password/question/", views.security_question_view, name="security_question"),
+    path("forgot-password/reset/", views.reset_password_view, name="reset_password"),
+    path("forgot-password/done/", views.reset_password_done_view, name="reset_password_done"),
 ]

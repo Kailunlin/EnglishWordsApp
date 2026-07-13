@@ -14,6 +14,20 @@
             <h3 class="mb-3 text-primary fw-bold">本次測驗共 {{ total_questions }} 題</h3>
             <p class="text-muted fs-5">挑戰你的單字記憶力，找出每個單字正確的中文意思！</p>
             
+            {% if mode != 'wrong' %}
+            <form method="GET" action="{% url 'quiz_start' %}" class="mt-4 mb-4" id="difficultyForm">
+                <div class="d-flex justify-content-center align-items-center gap-2">
+                    <label class="fw-bold text-muted">測驗難度：</label>
+                    <select name="difficulty" class="form-select" style="max-width: 150px; border-radius: 12px;" onchange="document.getElementById('difficultyForm').submit();">
+                        <option value="all" {% if difficulty == 'all' %}selected{% endif %}>全部難度</option>
+                        <option value="easy" {% if difficulty == 'easy' %}selected{% endif %}>簡單</option>
+                        <option value="medium" {% if difficulty == 'medium' %}selected{% endif %}>中等</option>
+                        <option value="hard" {% if difficulty == 'hard' %}selected{% endif %}>困難</option>
+                    </select>
+                </div>
+            </form>
+            {% endif %}
+            
             <div class="d-grid gap-3 mt-4">
                 <a href="{% url 'quiz_question' %}" class="btn action-btn btn-primary">開始挑戰 🚀</a>
                 <a href="{% url 'word_list' %}" class="btn action-btn btn-outline-secondary">先不測驗了，回單字庫</a>

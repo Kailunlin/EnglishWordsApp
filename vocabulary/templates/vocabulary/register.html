@@ -32,10 +32,69 @@
                 {% endif %}
             </div>
             {% endfor %}
+
+            <!-- 安全問題設定 -->
+            <hr class="my-4" style="border-color: rgba(0,0,0,0.1);">
+            <p class="fw-bold text-muted mb-3">🔒 設定安全問題（用於忘記密碼）</p>
+
+            <div class="mb-3">
+                <label for="id_question" class="form-label fw-bold text-muted">{{ sq_form.question.label }}</label>
+                {{ sq_form.question }}
+                {% if sq_form.question.errors %}
+                <div class="text-danger small mt-1">{{ sq_form.question.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="mb-3">
+                <label for="id_answer" class="form-label fw-bold text-muted">{{ sq_form.answer.label }}</label>
+                {{ sq_form.answer }}
+                {% if sq_form.answer.errors %}
+                <div class="text-danger small mt-1">{{ sq_form.answer.errors.0 }}</div>
+                {% endif %}
+            </div>
             
             <!-- Styling for default Django forms -->
             <script>
-                document.querySelectorAll('input').forEach(e => e.classList.add('form-control', 'rounded-4', 'shadow-sm', 'border-0', 'py-2'));
+                document.querySelectorAll('input').forEach(e => {
+                    e.classList.add('form-control', 'rounded-4', 'shadow-sm', 'border-0', 'py-2');
+                    
+                    if (e.type === 'password') {
+                        // Create wrapper for input group
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'input-group shadow-sm rounded-4 bg-white';
+                        
+                        // Insert wrapper before input
+                        e.parentNode.insertBefore(wrapper, e);
+                        
+                        // Move input into wrapper
+                        wrapper.appendChild(e);
+                        
+                        // Adjust input styling to fit inside group
+                        e.classList.remove('rounded-4', 'shadow-sm');
+                        e.style.borderTopLeftRadius = '1rem';
+                        e.style.borderBottomLeftRadius = '1rem';
+                        
+                        // Create toggle button
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'btn btn-outline-secondary border-0';
+                        btn.style.borderTopRightRadius = '1rem';
+                        btn.style.borderBottomRightRadius = '1rem';
+                        btn.innerHTML = '👁️';
+                        
+                        btn.addEventListener('click', function() {
+                            if (e.type === 'password') {
+                                e.type = 'text';
+                                btn.innerHTML = '🙈';
+                            } else {
+                                e.type = 'password';
+                                btn.innerHTML = '👁️';
+                            }
+                        });
+                        
+                        wrapper.appendChild(btn);
+                    }
+                });
             </script>
 
             <div class="d-grid gap-2 mt-4">

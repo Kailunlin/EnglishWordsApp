@@ -4,27 +4,36 @@ from datetime import timedelta
 from django.utils import timezone
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_POST
-from django.contrib.auth import login, logout
+from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.http import JsonResponse
-from .models import Vocabulary, WrongAnswer, FavoriteWord, UserLearningProfile, WordProgress
+from .models import Vocabulary, WrongAnswer, FavoriteWord, UserLearningProfile, WordProgress, SecurityQuestion
+from .forms import SecurityQuestionSetupForm, ForgotPasswordStep1Form, SecurityAnswerForm, ResetPasswordForm
 
 from django.core.paginator import Paginator
 from django.db.models import Q
 
 def register_view(request):
-    """用戶註冊視圖"""
+    """用戶註冊視圖（含安全問題設定）"""
     if request.method == 'POST':
         form = UserCreationForm(request.POST)
-        if form.is_valid():
-            # 建立新用戶並自動登入
+        sq_form = SecurityQuestionSetupForm(request.POST)
+        if form.is_valid() and sq_form.is_valid():
+            # 建立新用戶
             user = form.save()
+            # 儲存安全問題與答案
+            sq = SecurityQuestion(user=user, question=sq_form.cleaned_data['question'])
+            sq.set_answer(sq_form.cleaned_data['answer'])
+            sq.save()
+            # 自動登入並跳轉
             login(request, user)
             return redirect('word_list')
     else:
         form = UserCreationForm()
-    return render(request, 'vocabulary/register.html', {'form': form})
+        sq_form = SecurityQuestionSetupForm()
+    return render(request, 'vocabulary/register.html', {'form': form, 'sq_form': sq_form})
 
 def login_view(request):
     """用戶登入視圖"""
@@ -50,8 +59,12 @@ def word_list(request):
     """單字列表視圖 - 顯示所有單字並支援搜尋、篩選和分頁"""
     query = request.GET.get('q', '')
     tab = request.GET.get('tab', 'all')  # all: 全部, learning: 學習中, unlearned: 未學習
+    difficulty = request.GET.get('difficulty', 'all')
     
     words = Vocabulary.objects.all()
+
+    if difficulty and difficulty != 'all':
+        words = words.filter(difficulty=difficulty)
 
     # 根據搜尋關鍵字篩選（英文或中文）
     if query:
@@ -84,16 +97,28 @@ def word_list(request):
         "page_obj": page_obj,
         "query": query,
         "tab": tab,
+        "difficulty": difficulty,
         "favorite_word_ids": favorite_word_ids,
     })
 
 @login_required
 def quiz_start(request):
     """測驗開始視圖 - 初始化測驗並隨機選擇 10 個單字"""
-    # 取得所有單字的 ID
-    all_words = list(Vocabulary.objects.values_list('id', flat=True))
-    if not all_words:
-        return render(request, "vocabulary/quiz_start.html", {"error": "尚未建立任何單字"})
+    mode = request.GET.get('mode')
+    
+    if mode == 'wrong':
+        all_words = list(WrongAnswer.objects.filter(user=request.user).values_list('word_id', flat=True).distinct())
+        if not all_words:
+            return render(request, "vocabulary/quiz_start.html", {"error": "錯題本目前沒有單字！", "mode": mode})
+    else:
+        difficulty = request.GET.get('difficulty', 'all')
+        words_query = Vocabulary.objects.all()
+        if difficulty and difficulty != 'all':
+            words_query = words_query.filter(difficulty=difficulty)
+            
+        all_words = list(words_query.values_list('id', flat=True))
+        if not all_words:
+            return render(request, "vocabulary/quiz_start.html", {"error": "這個難度目前沒有單字！", "mode": mode, "difficulty": difficulty})
     
     # 隨機抽取最多 10 個單字
     sample_size = min(10, len(all_words))
@@ -104,7 +129,11 @@ def quiz_start(request):
     request.session['quiz_index'] = 0
     request.session['quiz_score'] = 0
     
-    return render(request, "vocabulary/quiz_start.html", {"total_questions": sample_size})
+    return render(request, "vocabulary/quiz_start.html", {
+        "total_questions": sample_size,
+        "mode": mode,
+        "difficulty": request.GET.get('difficulty', 'all')
+    })
 
 @login_required
 def quiz_question(request):
@@ -178,6 +207,10 @@ def quiz_answer(request):
             user_answer=user_answer or "未作答"
         )
         
+        # 將答錯或不知道的單字加回測驗佇列的最後面
+        quiz_word_ids.append(current_word_id)
+        request.session['quiz_word_ids'] = quiz_word_ids
+        
     # 移動到下一題
     request.session['quiz_index'] = quiz_index + 1
     
@@ -194,18 +227,32 @@ def quiz_answer(request):
 @login_required
 def quiz_result(request):
     """測驗結果視圖 - 顯示測驗成績並清除 session 資料"""
-    score = request.session.get('quiz_score', 0)
     quiz_word_ids = request.session.get('quiz_word_ids', [])
-    total = len(quiz_word_ids)
     
+    # 計算每個 word_id 出現的次數
+    from collections import Counter
+    id_counts = Counter(quiz_word_ids)
+    unique_ids = list(id_counts.keys())
+    
+    # 取得對應的單字
+    words_query = Vocabulary.objects.filter(id__in=unique_ids)
+    
+    tested_words = []
+    for word_id in unique_ids:
+        word_obj = next((w for w in words_query if w.id == word_id), None)
+        if word_obj:
+            tested_words.append({
+                'word': word_obj,
+                'is_wrong': id_counts[word_id] > 1
+            })
+            
     # 清除 session 中的測驗資料
     for key in ['quiz_word_ids', 'quiz_index', 'quiz_score', 'current_word_id']:
         if key in request.session:
             del request.session[key]
             
     return render(request, "vocabulary/quiz_result.html", {
-        "score": score,
-        "total": total
+        "tested_words": tested_words,
     })
 
 @login_required
@@ -320,9 +367,14 @@ def flashcard_study_view(request):
     # 取得用戶的學習檔案
     profile, _ = UserLearningProfile.objects.get_or_create(user=request.user)
     now = timezone.now()
+    difficulty = request.GET.get('difficulty', 'all')
     
     # 取得所有待複習的單字
-    due_progresses = list(WordProgress.objects.filter(user=request.user, next_review_date__lte=now, is_mastered=False).select_related('word'))
+    due_progresses_qs = WordProgress.objects.filter(user=request.user, next_review_date__lte=now, is_mastered=False).select_related('word')
+    if difficulty and difficulty != 'all':
+        due_progresses_qs = due_progresses_qs.filter(word__difficulty=difficulty)
+        
+    due_progresses = list(due_progresses_qs)
     due_words = [p.word for p in due_progresses]
     
     # 如果待複習單字不足，補充新單字
@@ -331,7 +383,11 @@ def flashcard_study_view(request):
         # 取得用戶已學習的單字 ID
         progress_word_ids = WordProgress.objects.filter(user=request.user).values_list('word_id', flat=True)
         # 取得新單字並補充到達目標數量
-        new_words = list(Vocabulary.objects.exclude(id__in=progress_word_ids)[:batch_size - len(due_words)])
+        new_words_qs = Vocabulary.objects.exclude(id__in=progress_word_ids)
+        if difficulty and difficulty != 'all':
+            new_words_qs = new_words_qs.filter(difficulty=difficulty)
+            
+        new_words = list(new_words_qs[:batch_size - len(due_words)])
         due_words.extend(new_words)
 
     # 隨機排列單字
@@ -347,6 +403,7 @@ def flashcard_study_view(request):
             'part_of_speech': w.part_of_speech,
             'example': w.example,
             'example_translation': w.example_translation,
+            'difficulty': w.difficulty,
         })
     
     return render(request, "vocabulary/flashcard.html", {'words_json': json.dumps(words_data)})
@@ -406,3 +463,93 @@ def api_swipe_word(request):
         return JsonResponse({'status': 'success'})
     except Exception as e:
         return JsonResponse({'status': 'error', 'msg': str(e)}, status=400)
+
+
+# === 忘記密碼流程視圖 ===
+
+def forgot_password_view(request):
+    """忘記密碼 - 第一步：輸入帳號，確認帳號是否存在且已設定安全問題"""
+    if request.method == 'POST':
+        form = ForgotPasswordStep1Form(request.POST)
+        if form.is_valid():
+            username = form.cleaned_data['username']
+            try:
+                user = User.objects.get(username=username)
+                # 確認該帳號有設定安全問題
+                if hasattr(user, 'security_question'):
+                    # 將帳號儲存到 session，進入下一步
+                    request.session['reset_username'] = username
+                    return redirect('security_question')
+                else:
+                    form.add_error('username', '此帳號尚未設定安全問題，無法透過此方式重設密碼。')
+            except User.DoesNotExist:
+                # 不明確告知帳號不存在（防止帳號枚舉攻擊）
+                form.add_error('username', '找不到此帳號，請確認輸入是否正確。')
+    else:
+        form = ForgotPasswordStep1Form()
+    return render(request, 'vocabulary/forgot_password.html', {'form': form})
+
+
+def security_question_view(request):
+    """忘記密碼 - 第二步：顯示安全問題並驗證答案"""
+    username = request.session.get('reset_username')
+    if not username:
+        return redirect('forgot_password')
+
+    try:
+        user = User.objects.get(username=username)
+        sq = user.security_question
+    except (User.DoesNotExist, SecurityQuestion.DoesNotExist):
+        return redirect('forgot_password')
+
+    if request.method == 'POST':
+        form = SecurityAnswerForm(request.POST)
+        if form.is_valid():
+            if sq.check_answer(form.cleaned_data['answer']):
+                # 答案正確，標記已驗證，進入重設密碼步驟
+                request.session['reset_verified'] = True
+                return redirect('reset_password')
+            else:
+                form.add_error('answer', '答案不正確，請再試一次。')
+    else:
+        form = SecurityAnswerForm()
+
+    return render(request, 'vocabulary/security_question.html', {
+        'form': form,
+        'question_display': sq.get_question_display(),
+    })
+
+
+def reset_password_view(request):
+    """忘記密碼 - 第三步：輸入並儲存新密碼"""
+    username = request.session.get('reset_username')
+    verified = request.session.get('reset_verified', False)
+
+    # 必須先完成前兩步才能到這裡
+    if not username or not verified:
+        return redirect('forgot_password')
+
+    try:
+        user = User.objects.get(username=username)
+    except User.DoesNotExist:
+        return redirect('forgot_password')
+
+    if request.method == 'POST':
+        form = ResetPasswordForm(request.POST)
+        if form.is_valid():
+            # 設定新密碼
+            user.set_password(form.cleaned_data['new_password1'])
+            user.save()
+            # 清除 session 中的重設標記
+            for key in ['reset_username', 'reset_verified']:
+                request.session.pop(key, None)
+            return redirect('reset_password_done')
+    else:
+        form = ResetPasswordForm()
+
+    return render(request, 'vocabulary/reset_password.html', {'form': form})
+
+
+def reset_password_done_view(request):
+    """忘記密碼 - 完成頁面"""
+    return render(request, 'vocabulary/reset_password_done.html')

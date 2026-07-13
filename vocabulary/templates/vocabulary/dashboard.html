@@ -140,10 +140,21 @@
     </div>
 </div>
 
-<div class="study-btn-container">
-    <a href="{% url 'flashcard_study' %}" class="btn study-btn d-flex justify-content-center align-items-center gap-2">
-        <span class="fs-3">🚀</span> 開始學習
-    </a>
+<div class="study-btn-container text-center">
+    <form method="GET" action="{% url 'flashcard_study' %}" class="d-flex flex-column align-items-center">
+        <div class="d-flex justify-content-center align-items-center gap-2 mb-3 bg-white px-4 py-2 rounded-pill shadow-sm" style="opacity: 0.95;">
+            <label class="fw-bold text-muted mb-0">選擇學習難度：</label>
+            <select name="difficulty" class="form-select border-0 bg-transparent text-primary fw-bold" style="width: auto; cursor: pointer; box-shadow: none;">
+                <option value="all">全部難度</option>
+                <option value="easy">簡單</option>
+                <option value="medium">中等</option>
+                <option value="hard">困難</option>
+            </select>
+        </div>
+        <button type="submit" class="btn study-btn d-flex justify-content-center align-items-center gap-2">
+            <span class="fs-3">🚀</span> 開始學習
+        </button>
+    </form>
 </div>
 {% endblock %}
 

@@ -27,11 +27,54 @@
             
             <!-- Django's AuthenticationForm doesn't add bootstrap classes by default, let's add them via JS -->
             <script>
-                document.querySelectorAll('input').forEach(e => e.classList.add('form-control', 'rounded-4', 'shadow-sm', 'border-0', 'py-2'));
+                document.querySelectorAll('input').forEach(e => {
+                    e.classList.add('form-control', 'rounded-4', 'shadow-sm', 'border-0', 'py-2');
+                    
+                    if (e.type === 'password') {
+                        // Create wrapper for input group
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'input-group shadow-sm rounded-4 bg-white';
+                        
+                        // Insert wrapper before input
+                        e.parentNode.insertBefore(wrapper, e);
+                        
+                        // Move input into wrapper
+                        wrapper.appendChild(e);
+                        
+                        // Adjust input styling to fit inside group
+                        e.classList.remove('rounded-4', 'shadow-sm');
+                        e.style.borderTopLeftRadius = '1rem';
+                        e.style.borderBottomLeftRadius = '1rem';
+                        
+                        // Create toggle button
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'btn btn-outline-secondary border-0';
+                        btn.style.borderTopRightRadius = '1rem';
+                        btn.style.borderBottomRightRadius = '1rem';
+                        btn.innerHTML = '👁️';
+                        
+                        btn.addEventListener('click', function() {
+                            if (e.type === 'password') {
+                                e.type = 'text';
+                                btn.innerHTML = '🙈';
+                            } else {
+                                e.type = 'password';
+                                btn.innerHTML = '👁️';
+                            }
+                        });
+                        
+                        wrapper.appendChild(btn);
+                    }
+                });
             </script>
 
             <div class="d-grid gap-2 mt-4">
                 <button type="submit" class="btn btn-primary action-btn">登入</button>
+            </div>
+
+            <div class="text-center mt-3">
+                <a href="{% url 'forgot_password' %}" class="text-decoration-none text-muted small">忘記密碼？</a>
             </div>
             
             <div class="text-center mt-4">

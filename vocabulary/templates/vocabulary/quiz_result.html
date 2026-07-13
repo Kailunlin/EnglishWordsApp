@@ -1,15 +1,39 @@
 {% extends 'vocabulary/base.html' %}
 
-{% block title %}最終成績 - Habitual{% endblock %}
+{% block title %}測驗結果 - Habitual{% endblock %}
 
 {% block content %}
-<div class="container mt-5 text-center">
-    <div class="card glass-card mx-auto" style="max-width: 500px;">
-        <h1 class="mb-4">🎉 測驗完成！</h1>
+<div class="container mt-5">
+    <div class="card glass-card mx-auto" style="max-width: 700px;">
+        <h2 class="mb-4 text-center">🎉 本次測驗單字總覽</h2>
         
-        <div class="my-4 p-4" style="background: rgba(255, 255, 255, 0.5); border-radius: 20px;">
-            <h3 class="text-muted fw-bold mb-3">你的成績</h3>
-            <h2 class="display-3 text-primary fw-bold mb-0">{{ score }} <span class="fs-3 text-muted">/ {{ total }}</span></h2>
+        <div class="list-group mb-4">
+            {% for item in tested_words %}
+                <div class="list-group-item list-group-item-action d-flex flex-column align-items-start p-3 mb-3 rounded shadow-sm {% if item.is_wrong %}border-danger border-2{% else %}border-success border-2{% endif %}" style="background: rgba(255, 255, 255, 0.8);">
+                    <div class="d-flex w-100 justify-content-between align-items-center mb-2">
+                        <h4 class="mb-0 fw-bold text-dark">
+                            {{ item.word.english }}
+                            {% if item.word.part_of_speech %}
+                                <span class="badge bg-secondary ms-2 fs-6 align-middle">{{ item.word.part_of_speech }}</span>
+                            {% endif %}
+                            <button class="btn btn-sm btn-light rounded-circle ms-2 shadow-sm" onclick="speak('{{ item.word.english|escapejs }}')" title="發音">🔊</button>
+                        </h4>
+                        <span class="fs-5 text-primary fw-bold">{{ item.word.chinese }}</span>
+                    </div>
+                    
+                    {% if item.word.example %}
+                    <div class="w-100 mt-2 p-2 rounded" style="background-color: rgba(248, 249, 250, 0.7);">
+                        <p class="mb-1 text-dark">
+                            <i>{{ item.word.example }}</i>
+                            <button class="btn btn-sm btn-light rounded-circle ms-2" onclick="speak('{{ item.word.example|escapejs }}')" title="發音">🔊</button>
+                        </p>
+                        <p class="mb-0 text-muted small">{{ item.word.example_translation }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            {% empty %}
+                <div class="alert alert-info text-center">沒有測驗紀錄</div>
+            {% endfor %}
         </div>
         
         <div class="d-grid gap-3 mt-4">

@@ -155,8 +155,13 @@
                     <li class="nav-item">
                         <a class="nav-link px-3" href="{% url 'wrong_list' %}">📕 錯題本</a>
                     </li>
-                    <li class="nav-item">
-                        <span class="nav-link px-3 text-primary">Hi, {{ user.username }}</span>
+                    <li class="nav-item d-flex align-items-center">
+                        <span class="nav-link px-3 text-primary fw-bold">
+                            Hi, {{ user.username }}
+                            {% if user.learning_profile.streak_days %}
+                                <span class="badge bg-danger bg-opacity-75 rounded-pill ms-1 shadow-sm fs-6 align-middle">🔥 {{ user.learning_profile.streak_days }} 天</span>
+                            {% endif %}
+                        </span>
                     </li>
                     <li class="nav-item">
                         <form method="POST" action="{% url 'logout' %}" class="m-0 p-0">
@@ -188,6 +193,7 @@
         // Global speak function
         function speak(text) {
             if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = 'en-US';
                 window.speechSynthesis.speak(utterance);
