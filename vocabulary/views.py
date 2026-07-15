@@ -103,9 +103,11 @@ def word_list(request):
 
 @login_required
 def quiz_start(request):
-    """測驗開始視圖 - 初始化測驗並隨機選擇 10 個單字"""
+    """測驗開始視圖
+    每顧題目隨機指定一種題型（英翻中、聽力、中翻英）一起提供多元測驗體驗。
+    """
     mode = request.GET.get('mode')
-    
+
     if mode == 'wrong':
         all_words = list(WrongAnswer.objects.filter(user=request.user).values_list('word_id', flat=True).distinct())
         if not all_words:
@@ -115,20 +117,24 @@ def quiz_start(request):
         words_query = Vocabulary.objects.all()
         if difficulty and difficulty != 'all':
             words_query = words_query.filter(difficulty=difficulty)
-            
         all_words = list(words_query.values_list('id', flat=True))
         if not all_words:
             return render(request, "vocabulary/quiz_start.html", {"error": "這個難度目前沒有單字！", "mode": mode, "difficulty": difficulty})
-    
+
     # 隨機抽取最多 10 個單字
     sample_size = min(10, len(all_words))
     quiz_word_ids = random.sample(all_words, sample_size)
-    
+
+    # 為每顧題目隨機指定一種題型，三種模式均匀分配
+    all_modes = ['english_to_chinese', 'listening', 'chinese_to_english']
+    quiz_question_modes = [random.choice(all_modes) for _ in quiz_word_ids]
+
     # 初始化 session 中的測驗狀態
     request.session['quiz_word_ids'] = quiz_word_ids
     request.session['quiz_index'] = 0
     request.session['quiz_score'] = 0
-    
+    request.session['quiz_question_modes'] = quiz_question_modes  # 儲存每顧題的模式
+
     return render(request, "vocabulary/quiz_start.html", {
         "total_questions": sample_size,
         "mode": mode,
@@ -137,38 +143,53 @@ def quiz_start(request):
 
 @login_required
 def quiz_question(request):
-    """測驗問題視圖 - 顯示英文單字並提供 4 個中文選項（1 個正確 + 3 個混淆選項）"""
+    """測驗問題視圖 - 依該題隨機指定的模式顯示題目。三種模式：
+    - english_to_chinese: 題目=英文，選項=中文
+    - listening:          題目=自動播放發音，選項=中文
+    - chinese_to_english: 題目=中文，選項=英文
+    """
     quiz_word_ids = request.session.get('quiz_word_ids')
     quiz_index = request.session.get('quiz_index')
-    
-    # 檢查 session 狀態
+    quiz_question_modes = request.session.get('quiz_question_modes', [])
+
     if quiz_word_ids is None or quiz_index is None:
         return redirect('quiz_start')
-        
-    # 檢查是否已完成所有題目
     if quiz_index >= len(quiz_word_ids):
         return redirect('quiz_result')
-        
-    # 取得目前題目的單字
+
     current_word_id = quiz_word_ids[quiz_index]
     word = Vocabulary.objects.get(id=current_word_id)
-    
-    # 取得 3 個不同的混淆選項（中文意思不同）
-    other_words = list(Vocabulary.objects.exclude(chinese=word.chinese).values_list('chinese', flat=True).distinct())
-    distractors = random.sample(other_words, min(3, len(other_words)))
-    
-    # 組合正確答案和混淆選項，並隨機排序
-    options = distractors + [word.chinese]
+
+    # 取得這顧題的模式（如果或模式清單不存在，預設用英翻中）
+    if quiz_question_modes and quiz_index < len(quiz_question_modes):
+        quiz_mode = quiz_question_modes[quiz_index]
+    else:
+        quiz_mode = 'english_to_chinese'
+
+    if quiz_mode == 'chinese_to_english':
+        other_words = list(
+            Vocabulary.objects.exclude(english=word.english)
+            .values_list('english', flat=True).distinct()
+        )
+        distractors = random.sample(other_words, min(3, len(other_words)))
+        options = distractors + [word.english]
+    else:
+        other_words = list(
+            Vocabulary.objects.exclude(chinese=word.chinese)
+            .values_list('chinese', flat=True).distinct()
+        )
+        distractors = random.sample(other_words, min(3, len(other_words)))
+        options = distractors + [word.chinese]
+
     random.shuffle(options)
-    
-    # 將目前單字 ID 儲存到 session 以驗證答案
     request.session['current_word_id'] = current_word_id
-    
+
     return render(request, "vocabulary/quiz_question.html", {
         "word": word,
         "options": options,
         "current_q": quiz_index + 1,
-        "total_q": len(quiz_word_ids)
+        "total_q": len(quiz_word_ids),
+        "quiz_mode": quiz_mode,
     })
 
 @login_required
@@ -189,12 +210,25 @@ def quiz_answer(request):
     if not current_word_id:
         return redirect('quiz_start')
         
-    # 取得單字和用戶答案
     word = Vocabulary.objects.get(id=current_word_id)
     user_answer = request.POST.get("answer")
-    
+
+    # 取得這顧題的模式
+    quiz_question_modes = request.session.get('quiz_question_modes', [])
+    quiz_index_for_mode = quiz_index  # quiz_index 這時還沒加 1
+    if quiz_question_modes and quiz_index_for_mode < len(quiz_question_modes):
+        quiz_mode = quiz_question_modes[quiz_index_for_mode]
+    else:
+        quiz_mode = 'english_to_chinese'
+
+    # 依測驗模式決定正確答案
+    if quiz_mode == 'chinese_to_english':
+        correct_answer = word.english
+    else:
+        correct_answer = word.chinese
+
     # 檢查答案是否正確
-    is_correct = (user_answer == word.chinese)
+    is_correct = (user_answer == correct_answer)
     
     # 計算正確答案數
     if is_correct:
@@ -207,9 +241,12 @@ def quiz_answer(request):
             user_answer=user_answer or "未作答"
         )
         
-        # 將答錯或不知道的單字加回測驗佇列的最後面
+        # 將答錯的單字加回佇列最後面，並附加相同題型（讓補考用同一種模式）
         quiz_word_ids.append(current_word_id)
         request.session['quiz_word_ids'] = quiz_word_ids
+        quiz_question_modes = request.session.get('quiz_question_modes', [])
+        quiz_question_modes.append(quiz_mode)
+        request.session['quiz_question_modes'] = quiz_question_modes
         
     # 移動到下一題
     request.session['quiz_index'] = quiz_index + 1
@@ -393,9 +430,16 @@ def flashcard_study_view(request):
     # 隨機排列單字
     random.shuffle(due_words)
 
+    progress_map = {p.word_id: p for p in due_progresses}
+
     # 將單字資料轉換為 JSON 格式
     words_data = []
     for w in due_words:
+        is_new = w.id not in progress_map
+        days_ago = 0
+        if not is_new:
+            days_ago = (now - progress_map[w.id].last_reviewed_date).days
+
         words_data.append({
             'id': w.id,
             'english': w.english,
@@ -404,9 +448,16 @@ def flashcard_study_view(request):
             'example': w.example,
             'example_translation': w.example_translation,
             'difficulty': w.difficulty,
+            'is_new': is_new,
+            'days_ago': days_ago,
         })
     
-    return render(request, "vocabulary/flashcard.html", {'words_json': json.dumps(words_data)})
+    context = {
+        'words_json': json.dumps(words_data),
+        'words_learned_today': profile.words_learned_today,
+        'daily_goal': profile.daily_goal
+    }
+    return render(request, "vocabulary/flashcard.html", context)
 
 @login_required
 @require_POST
@@ -416,7 +467,7 @@ def api_swipe_word(request):
     根據用戶的回應更新單字的學習進度（間隔重複法）：
     - 記得 (remembered): 增加複習間隔，延後下次複習時間
     - 忘記 (forgot): 重設間隔為 0，10 分鐘後需要複習
-    同時更新用戶的學習檔案（今日學習數、連鎖日數）
+    同時更新用戶的學習檔案（今日學習量、連續登入天數）
     """
     try:
         data = json.loads(request.body)
@@ -445,6 +496,7 @@ def api_swipe_word(request):
             progress.next_review_date = now + timedelta(minutes=10)  # 10 分鐘後複習
             progress.is_mastered = False
             
+        progress.last_reviewed_date = now
         progress.save()
         
         # 更新用戶學習檔案
@@ -452,15 +504,22 @@ def api_swipe_word(request):
         today = timezone.localdate()
         if profile.last_activity_date != today:
             # 新的一天，更新活動日期和連鎖日數
+            if profile.last_activity_date == today - timedelta(days=1):
+                profile.streak_days += 1
+            else:
+                profile.streak_days = 1
             profile.last_activity_date = today
-            profile.streak_days += 1
             profile.words_learned_today = 1
         else:
             # 同一天，累加學習單字數
             profile.words_learned_today += 1
         profile.save()
         
-        return JsonResponse({'status': 'success'})
+        return JsonResponse({
+            'status': 'success',
+            'words_learned_today': profile.words_learned_today,
+            'daily_goal': profile.daily_goal
+        })
     except Exception as e:
         return JsonResponse({'status': 'error', 'msg': str(e)}, status=400)
 

@@ -5,6 +5,7 @@
 {% block content %}
 <div class="container mt-5">
     <div class="card glass-card mx-auto" style="max-width: 600px;">
+        <!-- 進度條 -->
         <div class="progress-container mb-4"
             style="background-color: rgba(255, 255, 255, 0.5); border-radius: 10px; height: 8px; overflow: hidden;">
             <div class="progress-bar-fill"
@@ -12,18 +13,48 @@
             </div>
         </div>
 
-        <div class="text-center text-muted fw-bold mb-2">
-            Question {{ current_q }} of {{ total_q }}
+        <div class="text-center text-muted fw-bold mb-3">
+            第 {{ current_q }} / {{ total_q }} 題
         </div>
 
-        <h2 class="text-center word-display d-flex justify-content-center align-items-center">
+        <!-- ===== 題目區塊（依模式顯示不同內容） ===== -->
+
+        {% if quiz_mode == 'listening' %}
+        {# 聽力模式：只顯示喇叭按鈕，不顯示任何文字提示 #}
+        <div class="text-center mb-4">
+            <button type="button" id="speak-btn"
+                onclick="speakWord()"
+                style="font-size: 4rem; background: linear-gradient(135deg, #667eea, #764ba2); border: none; border-radius: 50%; width: 110px; height: 110px; cursor: pointer; box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4); transition: transform 0.2s;"
+                onmouseover="this.style.transform='scale(1.08)'"
+                onmouseout="this.style.transform='scale(1)'"
+                title="點擊再次播放">
+                🔊
+            </button>
+        </div>
+
+        {% elif quiz_mode == 'chinese_to_english' %}
+        {# 中翻英模式：顯示中文意思 + 詞性，不顯示例句翻譯 #}
+        <div class="text-center mb-4">
+            <h2 class="fw-bold" style="font-size: 2.5rem; color: #2c3e50;">
+                {{ word.chinese }}
+            </h2>
+            {% if word.part_of_speech %}
+            <span class="badge bg-secondary bg-opacity-75 fs-6 mt-1">{{ word.part_of_speech }}</span>
+            {% endif %}
+        </div>
+
+        {% else %}
+        {# 英翻中模式（預設）：顯示英文單字 + 發音按鈕 #}
+        <h2 class="text-center word-display d-flex justify-content-center align-items-center mb-4">
             {{ word.english }}
             <button type="button" class="btn btn-light rounded-circle ms-4 shadow-sm"
                 onclick="speak('{{ word.english|escapejs }}')" title="發音"
                 style="width: 50px; height: 50px; font-size: 1.5rem;">🔊</button>
         </h2>
+        {% endif %}
 
-        <form method="POST" action="{% url 'quiz_answer' %}" class="mt-4">
+        <!-- ===== 選項區塊 ===== -->
+        <form method="POST" action="{% url 'quiz_answer' %}" class="mt-2">
             {% csrf_token %}
             <input type="hidden" name="q_index" value="{{ current_q }}">
             <div class="d-grid gap-3">
@@ -35,7 +66,8 @@
                 
                 <hr class="text-muted">
                 
-                <button type="submit" name="answer" value="不知道" class="btn option-btn text-center py-2 px-4" style="background-color: #f8f9fa; border-color: #dee2e6;">
+                <button type="submit" name="answer" value="不知道" class="btn option-btn text-center py-2 px-4"
+                    style="background-color: #f8f9fa; border-color: #dee2e6;">
                     🤷‍♂️ 不知道
                 </button>
             </div>
@@ -46,9 +78,24 @@
 
 {% block extra_js %}
 <script>
-    // Automatically pronounce the word when the page loads
+    const wordEnglish = '{{ word.english|escapejs }}';
+    const quizMode = '{{ quiz_mode }}';
+
+    function speakWord() {
+        speak(wordEnglish);
+    }
+
     window.addEventListener('load', function() {
-        speak('{{ word.english|escapejs }}');
+        if (quizMode === 'listening') {
+            // 聽力模式：頁面載入後自動播放，加延遲確保語音引擎就緒
+            setTimeout(function() {
+                speakWord();
+            }, 400);
+        } else if (quizMode === 'english_to_chinese') {
+            // 英翻中模式：自動播放
+            speak(wordEnglish);
+        }
+        // 中翻英模式：不自動播放
     });
 </script>
 {% endblock %}

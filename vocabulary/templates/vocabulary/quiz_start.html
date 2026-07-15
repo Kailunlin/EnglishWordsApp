@@ -4,21 +4,22 @@
 
 {% block content %}
 <div class="container mt-5 text-center">
-    <div class="card glass-card mx-auto" style="max-width: 500px;">
-        <h1 class="mb-4">🧠 準備開始測驗</h1>
-        
+    <div class="card glass-card mx-auto" style="max-width: 480px;">
+        <h1 class="mb-3">🧠 準備開始測驗</h1>
+
         {% if error %}
             <div class="alert alert-warning border-0 shadow-sm rounded-4">{{ error }}</div>
             <a href="{% url 'word_list' %}" class="btn action-btn btn-secondary mt-3">去建立單字吧</a>
         {% else %}
-            <h3 class="mb-3 text-primary fw-bold">本次測驗共 {{ total_questions }} 題</h3>
-            <p class="text-muted fs-5">挑戰你的單字記憶力，找出每個單字正確的中文意思！</p>
-            
+            <h3 class="mb-1 text-primary fw-bold">本次測驗共 {{ total_questions }} 題</h3>
+            <p class="text-muted mb-4">每題隨機混合 🔤 英翻中 · 🔊 聽力 · 🀄 中翻英</p>
+
             {% if mode != 'wrong' %}
-            <form method="GET" action="{% url 'quiz_start' %}" class="mt-4 mb-4" id="difficultyForm">
+            <form method="GET" action="{% url 'quiz_start' %}" class="mb-4" id="difficultyForm">
                 <div class="d-flex justify-content-center align-items-center gap-2">
                     <label class="fw-bold text-muted">測驗難度：</label>
-                    <select name="difficulty" class="form-select" style="max-width: 150px; border-radius: 12px;" onchange="document.getElementById('difficultyForm').submit();">
+                    <select name="difficulty" class="form-select" style="max-width: 150px; border-radius: 12px;"
+                        onchange="document.getElementById('difficultyForm').submit();">
                         <option value="all" {% if difficulty == 'all' %}selected{% endif %}>全部難度</option>
                         <option value="easy" {% if difficulty == 'easy' %}selected{% endif %}>簡單</option>
                         <option value="medium" {% if difficulty == 'medium' %}selected{% endif %}>中等</option>
@@ -27,8 +28,8 @@
                 </div>
             </form>
             {% endif %}
-            
-            <div class="d-grid gap-3 mt-4">
+
+            <div class="d-grid gap-3">
                 <a href="{% url 'quiz_question' %}" class="btn action-btn btn-primary">開始挑戰 🚀</a>
                 <a href="{% url 'word_list' %}" class="btn action-btn btn-outline-secondary">先不測驗了，回單字庫</a>
             </div>

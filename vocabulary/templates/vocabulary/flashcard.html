@@ -99,7 +99,10 @@
 <div class="bg-overlay" id="bg-overlay"></div>
 
 <div class="container text-center mt-3">
-    <h5 class="text-muted">向左滑：不熟 ❌ &nbsp;&nbsp;|&nbsp;&nbsp; 向右滑：已記住 🟢</h5>
+    <div class="progress-indicator mb-2 fs-5 fw-bold text-primary bg-white bg-opacity-75 rounded-pill d-inline-block px-4 py-2 shadow-sm">
+        今日進度: <span id="learned-count">{{ words_learned_today }}</span> / <span id="daily-goal">{{ daily_goal }}</span>
+    </div>
+    <h5 class="text-muted mt-2">向左滑：不熟 ❌ &nbsp;&nbsp;|&nbsp;&nbsp; 向右滑：已記住 🟢</h5>
     <p class="small text-muted">點擊卡片顯示中文解釋</p>
 </div>
 
@@ -157,8 +160,19 @@
             diffHtml = `<span class="badge bg-danger bg-opacity-75 fs-6 mb-2 align-middle d-block mx-auto" style="width: max-content;">Hard</span>`;
         }
 
+        let statusHtml = '';
+        if (word.is_new) {
+            statusHtml = `<span class="badge bg-info bg-opacity-75 fs-6 mb-2 d-block mx-auto" style="width: max-content;">🆕 全新單字</span>`;
+        } else {
+            let daysText = word.days_ago === 0 ? "今天" : `${word.days_ago} 天前`;
+            statusHtml = `<span class="badge bg-secondary bg-opacity-75 fs-6 mb-2 d-block mx-auto" style="width: max-content;">⏳ 上次學習：${daysText}</span>`;
+        }
+
         const content = `
-            ${diffHtml}
+            <div class="d-flex justify-content-center gap-2 mb-3">
+                ${statusHtml}
+                ${diffHtml}
+            </div>
             <div class="word-title">${word.english}</div>
             <button class="speak-btn" onclick="event.stopPropagation(); speak('${word.english.replace(/'/g, "\\'")}')">🔊</button>
             <p class="text-muted small mt-2">點擊卡片查看解釋 👆</p>
@@ -264,6 +278,13 @@
                 'X-CSRFToken': '{{ csrf_token }}'
             },
             body: JSON.stringify({ word_id: wordId, action: action })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                document.getElementById('learned-count').textContent = data.words_learned_today;
+                document.getElementById('daily-goal').textContent = data.daily_goal;
+            }
         });
 
         setTimeout(() => {
